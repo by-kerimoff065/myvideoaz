@@ -1,36 +1,37 @@
-name: Update Token and Generate Link
+
+name: run main.py
 
 on:
-  schedule:
-    - cron: '0 * * * *'  # Hər saat bir işləsin
   workflow_dispatch:
+  schedule:
+    - cron: '0 */2 * * *' # Runs in every 3 hours
+  pull_request:
+      branches:
+        - main
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
+    steps: 
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
-
+            python-version: '3.x' 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run script
+          
+          pip3 install -r requirements.txt
+      - name: execute py script 
+        run: python main.py config.json
+      - name: commit and push files
         run: |
-          python mail.py
-
-      - name: Commit and push changes
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add .
-          git commit -m "Automated token update"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git commit -m "updated streams"
           git push
+
+        
+        
