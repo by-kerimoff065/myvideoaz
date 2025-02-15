@@ -1,56 +1,81 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+
+import re
+import requests
+import sys
 import json
-import time
+import os
+from urllib.parse import urljoin
+from slugify import slugify
+from tqdm import tqdm
 
-# Config faylını oxumaq
-def read_config():
-    with open("config.json", "r") as file:
-        config = json.load(file)
-    return config
+def get_stream_url(url, pattern, method="GET", headers={}, body={}):
+    if method == "GET":
+        r = requests.get(url, headers=headers)
+    elif method == "POST":
+        r = requests.post(url, json=body, headers=headers)
+    else:
+        print(method, "is not supported or wrong.")
+        return None
+    results = re.findall(pattern, r.text)
+    if len(results) > 0:
+        return results[0]
+    else:
+        print("No result found in the response. \nCheck your regex pattern {} for {}".format(method, url))
+        return None
 
-# Token və vaxtı yeniləmək
-def update_token(config):
-    config["token"] = "yeni_token_here"  # Yeni tokenı əlavə edin
-    config["e"] = int(time.time())  # Cari vaxtı yeniləyin
-    with open("config.json", "w") as file:
-        json.dump(config, file, indent=4)
+def playlist_text(url):
+    text = ""
+    r = requests.get(url)
+    if r.status_code == 200:
+        for line in r.iter_lines():
+            line = line.decode()
+            if not line:
+                continue
+            if line[0] != "#":
+                text = text + urljoin(url, str(line))
+            else:
+                text = str(text) + str(line)
+            text += "\n"
 
-# E-poçt göndərmək
-def send_email(config):
-    sender_email = "your_email@gmail.com"  # Göndərən e-poçt
-    receiver_email = "receiver_email@gmail.com"  # Qəbul edən e-poçt
-    password = "your_password"  # Göndərən e-poçtun şifrəsi
+        return text
+    return ""
 
-    message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = "Yeni Token və Link"
 
-    body = f"""
-    Yeni Token: {config["token"]}
-    Yeni Link: {generate_stream_url(config)}
-    """
-    message.attach(MIMEText(body, "plain"))
 
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, password)
-        server.sendmail(sender_email, receiver_email, message.as_string())
-        server.quit()
-        print("E-poçt uğurla göndərildi!")
-    except Exception as e:
-        print(f"E-poçt göndərilmədi: {e}")
+def main():
+    config_file = open(sys.argv[1], "r", encoding="utf-8")
+    config = json.load(config_file)
+    for site in config:
+        site_path = os.path.join(os.getcwd(), site["slug"])
+        os.makedirs(site_path, exist_ok=True)
+        for channel in tqdm(site["channels"]):
+            channel_file_path = os.path.join(site_path, slugify(channel["name"].lower()) + ".m3u8")
+            channel_url = site["url"]
+            for variable in channel["variables"]:
+                channel_url = channel_url.replace(variable["name"], variable["value"])
+            stream_url = get_stream_url(channel_url, site["pattern"])
+            if not stream_url:
+                if os.path.isfile(channel_file_path):
+                    os.remove(channel_file_path)
+                continue
+            if site["output_filter"] not in stream_url:
+                if os.path.isfile(channel_file_path):
+                    os.remove(channel_file_path)
+                continue
+            if site["mode"] == "variant":
+                text = playlist_text(stream_url)
+            elif site["mode"] == "master":
+                text = "#EXTM3U\n##EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH={}\n{}".format(site["bandwidth"], stream_url)
+            else:
+                print("Wrong or missing playlist mode argument")
+                text = ""
+            if text:
+                channel_file = open(channel_file_path, "w+")
+                channel_file.write(text)
+            else:
+                if os.path.isfile(channel_file_path):
+                    os.remove(channel_file_path)
+                
 
-# Yeni link yaratmaq
-def generate_stream_url(config):
-    url = f"https://mydo.canlitvplayer.com/xazer.m3u8?bandwidth=2096&e={config['e']}&playlistlength=5&shift=0&sid=coder_53&token={config['token']}&user=3707"
-    return url
-
-# Skripti işə salmaq
-if __name__ == "__main__":
-    config = read_config()
-    update_token(config)
-    send_email(config)
+if __name__=="__main__": 
+    main() 
