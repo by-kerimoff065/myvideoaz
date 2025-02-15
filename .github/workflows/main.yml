@@ -1,4 +1,4 @@
-name: Update Token and Send Email
+name: Update Token and Generate Link
 
 on:
   schedule:
