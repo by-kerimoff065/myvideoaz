@@ -12,7 +12,13 @@ def generate_stream_url():
     url = f"https://ecanlitv3.etvserver.com/xazartv.m3u8?tkn={token}&tms={tms}"
     return url
 
+# Linki fayla yazmaq
+def save_link_to_file():
+    stream_url = generate_stream_url()
+    with open("stream_link.txt", "w") as file:
+        file.write(stream_url)
+    print("Yeni yayım linki:", stream_url)
+
 # Skripti işə salmaq
 if __name__ == "__main__":
-    stream_url = generate_stream_url()
-    print("Yeni yayım linki:", stream_url)
+    save_link_to_file()
