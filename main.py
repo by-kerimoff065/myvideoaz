@@ -1,24 +1,32 @@
+import json
 import time
 
-# Token və vaxtı avtomatik yaratmaq
-def generate_token():
-    token = "IXSGPuL_ozDkr4KJwkXyCA"  # Bu nümunədir, real tokenı əldə etmək üçün API istifadə edin.
-    tms = int(time.time())  # Cari vaxtı əldə edirik.
-    return token, tms
+# Config faylını oxumaq
+def read_config():
+    with open("config.json", "r") as file:
+        config = json.load(file)
+    return config
+
+# Config faylını yeniləmək
+def update_config(config):
+    config["tms"] = int(time.time())  # Cari vaxtı yenilə
+    with open("config.json", "w") as file:
+        json.dump(config, file, indent=4)
 
 # Yeni link yaratmaq
-def generate_stream_url():
-    token, tms = generate_token()
-    url = f"https://ecanlitv3.etvserver.com/xazartv.m3u8?tkn={token}&tms={tms}"
+def generate_stream_url(config):
+    url = f"{config['base_url']}?tkn={config['token']}&tms={config['tms']}"
     return url
 
 # Linki fayla yazmaq
-def save_link_to_file():
-    stream_url = generate_stream_url()
+def save_link_to_file(stream_url):
     with open("stream_link.txt", "w") as file:
         file.write(stream_url)
     print("Yeni yayım linki:", stream_url)
 
 # Skripti işə salmaq
 if __name__ == "__main__":
-    save_link_to_file()
+    config = read_config()
+    update_config(config)  # Config faylını yenilə
+    stream_url = generate_stream_url(config)
+    save_link_to_file(stream_url)
